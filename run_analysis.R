@@ -1,5 +1,6 @@
 # Load necessary libraries
 library(dplyr)
+library(tidyr)
 rm(list = ls())
 
 # ******************************************************************************
@@ -28,6 +29,11 @@ colnames(activity_labels)<- c("ActivityID", "Activity")
 # Load a DS with 561 distinct features
 features <- read.table("UCI HAR Dataset/features.txt")
 colnames(features)<- c("FeatureID", "Feature")
+# head(features)  
+# FeatureID           Feature
+# 1         1 tBodyAcc-mean()-X
+# 2         2 tBodyAcc-mean()-Y
+# 3         3 tBodyAcc-mean()-Z
   # > str(features)
   # 'data.frame':	561 obs. of  2 variables:
   #   $ FeatureID: int  1 2 3 4 5 6 7 8 9 10 ...
@@ -90,7 +96,7 @@ subject_train <- read.table("UCI HAR Dataset/train/subject_train.txt")
 colnames(subject_train) <- c("Subject")
   # > str(subject_train)
   # 'data.frame':	7352 obs. of  1 variable:
-  #   $ V1: int  1 1 1 1 1 1 1 1 1 1 ...
+  #   $ Subject: int  1 1 1 1 1 1 1 1 1 1 ...
   # > unique(subject_train)
   # V1
   # 1     1
@@ -172,7 +178,7 @@ DS <- merge(DS, activity_labels, by = "ActivityID")
 DS <- DS[, c(ncol(DS), 1:(ncol(DS) - 1))]
 DS <- DS %>%
   select(-ActivityID)
-
+head(DS)
 object.size(DS)
 # 5572216 bytes
 DS$Activity <- factor(DS$Activity)
@@ -183,3 +189,77 @@ str(DS)
 #  $ Subject                    : Factor w/ 30 levels "1","2","3","4",..: 7 21 7 7 18 7 7 7 11 21 ...
 #  $ tBodyAcc-mean()-X          : num  0.269 0.262 0.238 0.245 0.249 ...
 #  $ tBodyAcc-mean()-Y          : num  0.00789 -0.01622 0.0021 -0.03155 -0.02112 ...
+
+# rename column names
+#   if starts with t-"tBodyAcc_mean()_Y"=>"Time_BodyAcc_mean()_Y"
+#   if starts with f-"fBodyAcc_mean()_Y"=>"Frequency_BodyAcc_mean()_Y"
+tidy <- DS %>%
+  # Apply a transformation to column names based on a specified function.
+  rename_with(
+    # The tilde (~) is used to define an anonymous function.
+    # `grepl("^t", .)` checks if the column name starts with the letter "t".
+    # If it starts with "t", rename as Time_ and replace "-" with "_".
+    ~ ifelse(grepl("^t", .), 
+             paste0("Time_", gsub("-", "_", sub("^t", "", .))),  # For time-domain, prefix with "Time_" and replace "-" with "_"
+             ifelse(grepl("^f", .), 
+                    paste0("Frequency_", gsub("-", "_", sub("^f", "", .))),  # For frequency-domain, prefix with "Frequency_" and replace "-" with "_"
+                    .)  # If neither "t" nor "f", leave the column name as is
+    ),
+    everything()  # Apply the transformation to all columns
+  )
+names(tidy)
+# rename column names
+# Replace parentheses with an empty string (remove them)
+tidy <- tidy %>%
+  rename_with(~ gsub("[()]", "", .), everything())  # Replace () in all column names
+
+names(tidy)
+# > names(tidy)
+# [1] "Activity"                           "Subject"                            "Time_BodyAcc_mean_X"               
+# [4] "Time_BodyAcc_mean_Y"                "Time_BodyAcc_mean_Z"                "Time_BodyAcc_std_X"                
+# [7] "Time_BodyAcc_std_Y"                 "Time_BodyAcc_std_Z"                 "Time_GravityAcc_mean_X"            
+# [10] "Time_GravityAcc_mean_Y"             "Time_GravityAcc_mean_Z"             "Time_GravityAcc_std_X"             
+# [13] "Time_GravityAcc_std_Y"              "Time_GravityAcc_std_Z"              "Time_BodyAccJerk_mean_X"           
+# [16] "Time_BodyAccJerk_mean_Y"            "Time_BodyAccJerk_mean_Z"            "Time_BodyAccJerk_std_X"            
+# [19] "Time_BodyAccJerk_std_Y"             "Time_BodyAccJerk_std_Z"             "Time_BodyGyro_mean_X"              
+# [22] "Time_BodyGyro_mean_Y"               "Time_BodyGyro_mean_Z"               "Time_BodyGyro_std_X"               
+# [25] "Time_BodyGyro_std_Y"                "Time_BodyGyro_std_Z"                "Time_BodyGyroJerk_mean_X"          
+# [28] "Time_BodyGyroJerk_mean_Y"           "Time_BodyGyroJerk_mean_Z"           "Time_BodyGyroJerk_std_X"           
+
+
+# View the tidied dataset
+head(tidy)
+
+#Now we have a case of multiple variables in columns
+# we have cases with "Domain", "Feature","Variable","Axis"
+# and                "Domain", "Feature","Variable"
+tidy<-pivot_longer(tidy, 
+             cols = -c(Activity, Subject),  # Keep Activity and Subject columns intact
+             names_to = c("Domain", "Feature","Variable","Axis"), 
+             names_sep = "_")
+
+# Remove duplicated after separating columns
+tidy <- tidy[!duplicated(tidy), ]
+
+# Calculate the average of each variable for each Activity and each Subject
+tidy_avg <- tidy %>%
+  # Group by Activity, Subject, Feature, and Measurement
+  group_by(Activity, Subject, Domain, Feature, Variable ,Axis) %>%  
+  summarise(
+    Average = mean(value, na.rm = TRUE), 
+    .groups = 'drop'  
+    # This argument is used to drop the grouping after summarization. 
+    # It makes sure the resulting dataset is no longer grouped, 
+    # so you can continue with further operations if needed.
+  )  # Calculate the average of the value column
+rm(DS,activity_labels,features, tidy)
+tidy_avg$Domain   <- factor(tidy_avg$Domain )
+tidy_avg$Feature    <- factor(tidy_avg$Feature  )
+tidy_avg$Axis        <- factor(tidy_avg$Axis      )
+tidy_avg$Variable        <- factor(tidy_avg$Variable      )
+str(tidy_avg)
+# Write the tidy_avg dataset to a text file 
+write.table(tidy_avg, file = "tidy_avg.txt", sep = ",", row.names = FALSE, col.names = TRUE)
+
+# source("create_codebook.R")
+# create_codebook(tidy_avg)

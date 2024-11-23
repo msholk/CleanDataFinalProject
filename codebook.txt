@@ -1,0 +1,8 @@
+"Variable"	"Type"	"Units"	"Description"	"Mean"	"Median"	"Min"	"Max"	"SD"
+"Activity"	"factor"	"N/A"	"Activity being performed (e.g., walking, running)"	NA	NA	NA	NA	NA
+"Average"	"numeric"	"m/s"	"Measurement value"	-0.48436274644839	-0.469886509616711	-0.997666071594203	0.974508732	0.461422512496342
+"Axis"	"character"	"N/A"	"Axis function (X,Y,Z)"	NA	NA	NA	NA	NA
+"Domain"	"character"	"N/A"	"Domain (Time/Frequency)"	NA	NA	NA	NA	NA
+"Feature"	"character"	"N/A"	"Feature (tBodyAcc,tGravityAcc) "	NA	NA	NA	NA	NA
+"Subject"	"factor"	"N/A"	"Subject performing the activity (1-30)"	NA	NA	NA	NA	NA
+"Variable"	"character"	"N/A"	"Average function (mean, std)"	NA	NA	NA	NA	NA
